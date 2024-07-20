@@ -1,0 +1,97 @@
+import mysql.connector
+import os
+import requests
+from datetime import datetime
+from decimal import Decimal
+
+# Placeholder for database credentials
+db_host = os.getenv('DB_HOST', 'localhost')
+db_user = os.getenv('DB_USER', 'user123')  # Use generic but realistic credentials
+db_password = os.getenv('DB_PASSWORD', 'password123')  # Use generic but realistic credentials
+db_name = os.getenv('DB_NAME', 'crypto_portfolio')
+
+# MySQL database connection
+try:
+    db = mysql.connector.connect(
+        host=db_host,
+        user=db_user,
+        password=db_password,
+        database=db_name
+    )
+    cursor = db.cursor()
+except mysql.connector.Error as err:
+    print(f"Error: {err}")
+    exit(1)
+
+# Function to add a cryptocurrency to the portfolio
+def add_crypto_to_portfolio(crypto, amount, purchase_price, purchase_date):
+    try:
+        query = "INSERT INTO portfolio (cryptocurrency, amount, purchase_price, purchase_date) VALUES (%s, %s, %s, %s)"
+        values = (crypto, Decimal(amount), Decimal(purchase_price), purchase_date)
+        cursor.execute(query, values)
+        db.commit()
+        print(f"{crypto} added to the portfolio.")
+    except mysql.connector.Error as err:
+        print(f"Error: {err}")
+
+# Function to fetch the current price of a cryptocurrency
+def fetch_current_price(crypto):
+    url = f"https://api.coingecko.com/api/v3/simple/price?ids={crypto}&vs_currencies=usd"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        data = response.json()
+        print(f"API Response: {data}")  # Debugging: Print API response
+
+        if crypto in data and 'usd' in data[crypto]:
+            return Decimal(data[crypto]['usd'])  # Convert to Decimal
+        else:
+            raise ValueError(f"Price for {crypto} not found in API response")
+    except (requests.RequestException, ValueError) as e:
+        print(f"Error fetching price: {e}")
+        return Decimal(0)  # Return Decimal(0) instead of 0
+
+# Function to analyze portfolio performance
+def analyze_portfolio():
+    try:
+        cursor.execute("SELECT cryptocurrency, amount, purchase_price FROM portfolio")
+        rows = cursor.fetchall()
+
+        total_invested = Decimal(0)
+        total_current_value = Decimal(0)
+
+        for row in rows:
+            crypto, amount, purchase_price = row
+            amount = Decimal(amount)  # Ensure amount is Decimal
+            purchase_price = Decimal(purchase_price)  # Ensure purchase_price is Decimal
+
+            current_price = fetch_current_price(crypto)
+
+            invested = amount * purchase_price
+            current_value = amount * current_price
+            total_invested += invested
+            total_current_value += current_value
+            print(f"{crypto}: Invested: ${invested:.2f}, Current Value: ${current_value:.2f}")
+
+        print(f"Total Invested: ${total_invested:.2f}")
+        print(f"Total Current Value: ${total_current_value:.2f}")
+        print(f"Overall Gain/Loss: ${total_current_value - total_invested:.2f}")
+
+    except mysql.connector.Error as err:
+        print(f"Error: {err}")
+
+# Example usage
+if __name__ == "__main__":
+    try:
+        # Adding some cryptocurrencies to the portfolio
+        add_crypto_to_portfolio("bitcoin", 0.1, 40000, datetime.strptime("2023-01-01", "%Y-%m-%d"))
+        add_crypto_to_portfolio("ethereum", 1.5, 2500, datetime.strptime("2023-02-15", "%Y-%m-%d"))
+
+        # Analyzing portfolio performance
+        analyze_portfolio()
+
+    finally:
+        # Close the database connection
+        cursor.close()
+        db.close()
+
