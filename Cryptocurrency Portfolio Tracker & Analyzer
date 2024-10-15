@@ -6,8 +6,8 @@ from decimal import Decimal
 
 # Placeholder for database credentials
 db_host = os.getenv('DB_HOST', 'localhost')
-db_user = os.getenv('DB_USER', 'user123')  # Use generic but realistic credentials
-db_password = os.getenv('DB_PASSWORD', 'password123')  # Use generic but realistic credentials
+db_user = os.getenv('DB_USER', 'user123')
+db_password = os.getenv('DB_PASSWORD', 'password123')
 db_name = os.getenv('DB_NAME', 'crypto_portfolio')
 
 # MySQL database connection
